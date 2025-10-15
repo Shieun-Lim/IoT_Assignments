@@ -1,0 +1,95 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8" />
+  <title>IoT 온습도 모니터 (ewha/2593249)</title>
+  <h3>나의 웹(0317137263, 임시은)</h3>
+  <style>
+    body { font-family: system-ui, sans-serif; max-width: 720px; margin: 24px auto; }
+    .status { padding: 8px 12px; border-radius: 8px; display: inline-block; margin-bottom: 12px; }
+    .ok { background: #e6ffed; border: 1px solid #b7ebc6; }
+    .bad { background: #fff2f0; border: 1px solid #ffccc7; }
+    .grid { display: grid; grid-template-columns: 1fr 1fr 1fr 1fr; gap: 8px; margin-top: 8px; }
+    .card { border: 1px solid #ddd; border-radius: 10px; padding: 12px; margin-top: 12px; }
+    #log { height: 240px; overflow:auto; background:#fafafa; border:1px solid #eee; padding:8px; border-radius:8px; }
+    code { background:#f7f7f7; padding:2px 4px; border-radius:4px; }
+  </style>
+  <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+</head>
+<body>
+  <div id="conn" class="status bad">브로커 연결: <b>연결 중...</b></div>
+
+  <div class="card">
+    <h4>현재 값 (Latest)</h4>
+    <div class="grid">
+      <div><b>cnt</b><div id="cnt">-</div></div>
+      <div><b>온도(°C)</b><div id="temp">-</div></div>
+      <div><b>습도(%)</b><div id="hum">-</div></div>
+      <div><b>시각</b><div id="time">-</div></div>
+    </div>
+  </div>
+
+  <div class="card">
+    <h4>수신 로그</h4>
+    <div id="log"></div>
+  </div>
+
+  <script>
+    const brokerUrl = 'wss://damoa.io:9002';
+    const topic = 'ewha/2593249';
+    const clientId = 'iot-client-' + Math.random().toString(16).substr(2,8);
+
+    const $ = (id) => document.getElementById(id);
+    const client = mqtt.connect(brokerUrl, { clientId });
+
+    function setConn(ok, msg) {
+      const el = $('conn');
+      el.className = 'status ' + (ok ? 'ok':'bad');
+      el.innerHTML = '브로커 연결: <b>' + msg + '</b>';
+    }
+
+    client.on('connect', () => {
+      setConn(true, `성공 (ID: ${clientId})`);
+      console.log('✅ connected');
+      client.subscribe(topic, (err) => {
+        if (err) {
+          console.error('구독 실패', err);
+        } else {
+          console.log('📄 구독 성공:', topic);
+          //출석 확인용
+          client.publish('ewha/checkin', '2593249 임시은');
+        }
+      });
+    });
+
+    client.on('error', (err) => {
+      console.error('연결 오류:', err);
+      setConn(false, '오류');
+      client.end();
+    });
+
+    client.on('message', (t, msgBuf) => {
+      const raw = msgBuf.toString();
+      const timeStr = new Date().toLocaleTimeString();
+
+      // 로그에 원문 추가
+      $('log').innerHTML += `<div><code>[${timeStr}] ${t}</code> ${raw}</div>`;
+      $('log').scrollTop = $('log').scrollHeight;
+
+      // JSON 시도 파싱
+      try {
+        const data = JSON.parse(raw);
+        // 키: cnt, temp, hum, ts 예상
+        if ('cnt' in data) $('cnt').textContent = data.cnt;
+        if ('temp' in data) $('temp').textContent = data.temp;
+        if ('hum' in data)  $('hum').textContent  = data.hum;
+
+        // ts가 millis이면 브라우저 시간으로 대체 표기
+        $('time').textContent = new Date().toLocaleTimeString();
+      } catch(e) {
+        // JSON이 아니면 무시(로그만 남김)
+      }
+    });
+  </script>
+</body>
+</html>
