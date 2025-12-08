@@ -3,51 +3,67 @@
 <head>
     <meta charset="utf-8" />
     <title>My MQTT Page</title>
-    <script src="https://unpkg.com/mqtt/dist/mqtt.min.js"></script>
+
+    <!-- MQTT WebSocket 라이브러리 -->
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/mqtt/4.3.7/mqtt.min.js"></script>
 </head>
 
 <body>
-<h3>나의 웹(2593249, 임시은)</h3>
-<div id="main" style="font-size:20px;"></div>
+<h3>나의 웹 (0317137263 센서 데이터 표시)</h3>
+<div id="main" style="font-size:20px; white-space: pre-wrap;"></div>
 
 <script>
+    // WSS 브로커 주소
     const brokerUrl = 'wss://damoa.io:9002';
 
+    // 랜덤 clientId 생성
     const clientId = 'iot-client-' + Math.random().toString(16).substr(2, 8);
 
+    // MQTT 옵션
     const options = {
-        clientId,
+        clientId: clientId,
         clean: true,
         connectTimeout: 4000,
         reconnectPeriod: 2000,
         protocol: 'wss'
     };
 
-    console.log("브로커 접속 시도 중:", brokerUrl);
+    console.log("브로커 연결 시도:", brokerUrl);
+
+    // MQTT 브로커 접속
     const client = mqtt.connect(brokerUrl, options);
 
+    // 연결 성공 시
     client.on('connect', () => {
         console.log("접속 성공!", clientId);
 
-        const topic = 'ewha/2593249';
+        // 👉 구독해야 할 실제 토픽
+        const topic = "ewha/0317137263";
+
         client.subscribe(topic, err => {
             if (!err) {
                 console.log("구독 성공:", topic);
 
-                client.publish('ewha/checkin', '2593249 임시은');
+                // (선택) 체크인 메시지 발행
+                client.publish("ewha/checkin", "웹 접속 완료");
+            } else {
+                console.error("구독 오류:", err);
             }
         });
     });
 
+    // 메시지 수신 시 실행
     client.on('message', (topic, message) => {
         const msg = message.toString();
-        console.log("메시지 도착:", msg);
+        console.log("받은 메시지:", msg);
 
+        // HTML에 표시
         document.getElementById("main").innerText = msg;
     });
 
+    // 연결 오류 처리
     client.on('error', (err) => {
-        console.error("연결 오류:", err);
+        console.error("MQTT 연결 오류:", err);
     });
 </script>
 
